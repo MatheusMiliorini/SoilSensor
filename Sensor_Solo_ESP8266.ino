@@ -97,8 +97,6 @@ void connectToAWS() {
     Serial.println("AWS IoT Timeout!");
     return;
   }
-  // Subscribe to a topic
-  client.subscribe(AWS_IOT_SUBSCRIBE_TOPIC);
 
   Serial.println("AWS IoT Connected!");
 }
