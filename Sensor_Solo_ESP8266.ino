@@ -24,6 +24,9 @@ PubSubClient client(awsClient);
 // Pins
 const uint8_t ANALOG_PIN = A0;
 
+int soilRead;
+uint8_t mappedSoilRead;
+
 void connectToWiFi() {
   Serial.println('\n');
 
@@ -103,13 +106,34 @@ void connectToAWS() {
 void publishMessageToAWS() {
   JsonDocument doc;
   doc["date"] = getCurrentTime();
-  doc["humidity"] = analogRead(ANALOG_PIN);
+  doc["rawReading"] = soilRead;
+  doc["humidity"] = 100 - mappedSoilRead;
   doc["plant"] = PLANT_NAME;
   doc["location"] = PLANT_LOCATION;
   char jsonBuffer[512];
-  serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));  // print to client
+  serializeJson(doc, jsonBuffer, sizeof(jsonBuffer));
 
   client.publish(AWS_IOT_PUBLISH_TOPIC, jsonBuffer);
+}
+
+void debugReading() {
+  Serial.print("Raw reading: ");
+  Serial.println(soilRead);
+
+  Serial.print("Mapped reading: ");
+  Serial.println(mappedSoilRead);
+
+  Serial.print("Soil Humidity Percentage: ");
+  Serial.print(100 - mappedSoilRead);
+  Serial.println("%");
+}
+
+void doSoilRead() {
+  soilRead = analogRead(ANALOG_PIN);
+  mappedSoilRead = map(soilRead, 300, 600, 0, 100);
+  if (mappedSoilRead > 100) {
+    mappedSoilRead = 100;
+  }
 }
 
 void setup() {
@@ -120,10 +144,17 @@ void setup() {
   connectToWiFi();
   connectToNTP();
   connectToAWS();
+
+  // doSoilRead();
+  // debugReading();
+  // publishMessageToAWS();
+
+  // Serial.println("Going into deep sleep...");
+  // ESP.deepSleep(5e6);
 }
 
 void loop() {
-  // publishMessageToAWS();
-  Serial.println(analogRead(ANALOG_PIN));
-  delay(500);
+  doSoilRead();
+  debugReading();
+  delay(1000);
 }
