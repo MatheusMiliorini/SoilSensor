@@ -23,9 +23,9 @@ PubSubClient client(awsClient);
 
 // Pins
 const uint8_t ANALOG_PIN = A0;
+const uint8_t SOIL_PWR = D5;
 
-int soilRead;
-uint8_t mappedSoilRead;
+uint soilRead;
 
 void connectToWiFi() {
   Serial.println('\n');
@@ -105,7 +105,6 @@ void publishMessageToAWS() {
   JsonDocument doc;
   doc["date"] = getCurrentTime();
   doc["rawReading"] = soilRead;
-  doc["humidity"] = 100 - mappedSoilRead;
   doc["plant"] = PLANT_NAME;
   doc["location"] = PLANT_LOCATION;
   char jsonBuffer[512];
@@ -117,42 +116,48 @@ void publishMessageToAWS() {
 void debugReading() {
   Serial.print("Raw reading: ");
   Serial.println(soilRead);
-
-  Serial.print("Mapped reading: ");
-  Serial.println(mappedSoilRead);
-
-  Serial.print("Soil Humidity Percentage: ");
-  Serial.print(100 - mappedSoilRead);
-  Serial.println("%");
 }
 
 void doSoilRead() {
-  soilRead = analogRead(ANALOG_PIN);
-  mappedSoilRead = map(soilRead, 300, 600, 0, 100);
-  if (mappedSoilRead > 100) {
-    mappedSoilRead = 100;
+  uint readSum = 0;
+  const uint8_t ITERATIIONS = 16;
+
+  for (uint8_t i = 0; i < ITERATIIONS; i++) {
+    readSum += analogRead(ANALOG_PIN);
+    delay(50);
   }
+
+  soilRead = readSum / ITERATIIONS;
 }
 
 void setup() {
   Serial.begin(9600);
   delay(10);
   pinMode(ANALOG_PIN, INPUT);
+  pinMode(SOIL_PWR, OUTPUT);
+
+  // Give power to soil reader
+  digitalWrite(SOIL_PWR, HIGH);
 
   connectToWiFi();
   connectToNTP();
   connectToAWS();
 
-  // doSoilRead();
-  // debugReading();
-  // publishMessageToAWS();
+  doSoilRead();
+  debugReading();
+  publishMessageToAWS();
 
-  // Serial.println("Going into deep sleep...");
-  // ESP.deepSleep(5e6);
+  // Disable power
+  digitalWrite(SOIL_PWR, LOW);
+
+  Serial.println("Going into deep sleep...");
+  ESP.deepSleep(3.6e9);  // One hour
+  // ESP.deepSleep(5e6);  // 5 Seconds
 }
 
 void loop() {
-  doSoilRead();
-  debugReading();
-  delay(1000);
+  // doSoilRead();
+  // debugReading();
+  // publishMessageToAWS();
+  // delay(500);
 }
